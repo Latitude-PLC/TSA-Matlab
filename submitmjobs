@@ -1,0 +1,54 @@
+#!/bin/csh
+#
+# Purpose: Running this script launches multiple serial jobs in batch.
+# Usage: scc1% submitmjobs ntime ntasks batch_script "SGE options"
+# Runtime input parameters to submitmjobs:
+#   ntime  -- number of iterations per job
+#   ntasks -- the number of tasks submitted to batch queue
+#   batch_script -- such as run_matlab_job, run_standalone_job for MATLAB apps
+#                   it can also be used for other applications
+#   The OPTIONAL input must be valid SGE batch parameters.
+# Example:
+# scc1% submitmjobs 1 run_standalone_job "-pe omp 4"
+# scc1% submitmjobs 1 run_matlab_pct_job "-pe omp 4"
+# scc1% submitmjobs 2 run_matlab_job
+#
+# In the above, running submitmjobs launches 1 run_standalone_job or run_matlab_pct_job
+# Each of the two examples uses 4 cores with omp. You can add additional SGE options
+# within the set of double quotes. Many of the fixed SGE options can be placed in
+# ~/.sge_request (http://www.bu.edu/tech/support/research/system-usage/running-jobs/
+# advanced-batch/#sge_request)
+# Each of the ntasks is assigned a unique index, task, ranged 
+# between 1 to ntasks. It is up to you to use these parameters to dictate what you want
+# to do. You can add additional loops or parameters if need be. If only one input 
+# parameter is needed, you could modify this script and run "array jobs." The $SGE_TASK_ID
+# will be readily available to your program similar to $MATLAB_TASK used here.
+# Please read the manpage of qsub for details.
+#
+# The Sun Grid Engine batch preserves the current dir in batch.
+# A different dir may also be used
+# cd my_dir
+
+if ($# == 0) then
+  echo Usage is : submitmjobs 320 run_change_job '"-l h_rt=24:00:00"'
+  echo Usage is : submitmjobs 320 run_class_job '"-l mem_total=94G -pe omp 16"'
+  exit
+endif
+
+@ ntasks = $1
+set batch_script = $2
+set options = "$3"
+# pass MATLAB_NTASKS to $batch_script
+setenv MATLAB_NTASKS $ntasks
+# Name your batch job; otherwise default to script name
+set myjob = ccdc
+foreach task (`/usr/bin/seq $ntasks`)
+  setenv MATLAB_TASK $task
+# pass MATLAB_TASK to $batch_script
+# e.g., run_matlab_job, run_standalone_job, run_matlab_pct_job
+  qsub -e /dev/null -o /dev/null -m n -N $myjob$task $options -V $batch_script
+#  qsub -N $myjob$task $options -V $batch_script
+end
+# If you need this operation, remove # to activate
+# qsub -hold_jid "$myjob*" -V post_process_job
+# keep this line to ensure newline
